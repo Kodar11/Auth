@@ -35,3 +35,13 @@ export const sendOtpValidator = [
       .isLength({ min: 6, max: 6 }).withMessage("OTP must be 6 digits")
       .isNumeric().withMessage("OTP must be numeric")
   ];
+
+  export const resetPasswordValidator = [
+    body("email")
+      .isEmail().withMessage("Valid email is required")
+      .normalizeEmail(),
+  
+    body("password")
+      .isLength({ min: 6 }).withMessage("Password must be at least 6 characters long")
+  ];
+  

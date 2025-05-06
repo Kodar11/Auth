@@ -10,32 +10,32 @@ import crypto from "crypto";
 import nodemailer from "nodemailer";
 
 const sendOtp = asyncHandler(async (req, res) => {
-  const { email } = req.body;
+    const { email } = req.body;
 
-  if (!email) throw new ApiError(400, "Email is required");
+    if (!email) throw new ApiError(400, "Email is required");
 
-  const existingOtp = await Otp.findOne({ email });
-  if (existingOtp) await Otp.deleteOne({ email });
+    const existingOtp = await Otp.findOne({ email });
+    if (existingOtp) await Otp.deleteOne({ email });
 
-  const otp = crypto.randomInt(100000, 999999).toString();
+    const otp = crypto.randomInt(100000, 999999).toString();
 
-  await Otp.create({ email, otp });
+    await Otp.create({ email, otp });
 
-  // Send email using nodemailer (or resend/ethereal)
-  const transporter = nodemailer.createTransport({
-    service: "gmail", // use your provider
-    auth: {
-      user: process.env.SMTP_EMAIL,
-      pass: process.env.SMTP_PASSWORD
-    },
-    from : process.env.SMTP_EMAIL
-  });
+    // Send email using nodemailer (or resend/ethereal)
+    const transporter = nodemailer.createTransport({
+        service: "gmail", // use your provider
+        auth: {
+            user: process.env.SMTP_EMAIL,
+            pass: process.env.SMTP_PASSWORD
+        },
+        from: process.env.SMTP_EMAIL
+    });
 
-  await transporter.sendMail({
-    from: `${process.env.SMTP_EMAIL}`,
-    to: email,
-    subject: "Your One-Time Password (OTP)",
-    text: `Hello,
+    await transporter.sendMail({
+        from: `${process.env.SMTP_EMAIL}`,
+        to: email,
+        subject: "Your One-Time Password (OTP)",
+        text: `Hello,
   
   Your OTP for MyApp is: ${otp}
   
@@ -45,7 +45,7 @@ const sendOtp = asyncHandler(async (req, res) => {
   
   Thank you,
   MyApp Team`,
-    html: `
+        html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
         <h2 style="color: #333;">Your OTP Code</h2>
         <p style="font-size: 16px;">Hello,</p>
@@ -56,51 +56,56 @@ const sendOtp = asyncHandler(async (req, res) => {
         <p style="margin-top: 30px; font-size: 14px;">Thanks,<br/>The MyApp Team</p>
       </div>
     `
-  });
-  
+    });
 
-  res.status(200).json(new ApiResponse(200, {}, "OTP sent to email"));
+
+    res.status(200).json(new ApiResponse(200, {}, "OTP sent to email"));
 });
 
 const verifyOtp = asyncHandler(async (req, res) => {
     const { email, otp } = req.body;
-  
+
     if (!email || !otp) throw new ApiError(400, "Email and OTP required");
-  
+
     const existingOtp = await Otp.findOne({ email });
-  
+
     if (!existingOtp) throw new ApiError(404, "OTP not found or expired");
-  
+
     if (existingOtp.otp !== otp) throw new ApiError(401, "Invalid OTP");
-  
+
     if (existingOtp.expiresAt < new Date()) {
-      await Otp.deleteOne({ email });
-      throw new ApiError(410, "OTP expired");
+        await Otp.deleteOne({ email });
+        throw new ApiError(410, "OTP expired");
     }
-  
+
     await Otp.deleteOne({ email });
-  
+
     res.status(200).json(new ApiResponse(200, { verified: true }, "OTP verified"));
-  });
-  
+});
+
 
 
 const generateAccessAndRefereshTokens = async (userId) => {
     try {
-        const user = await User.findById(userId)
-        const accessToken = user.generateAccessToken()
-        const refreshToken = user.generateRefreshToken()
+        const user = await User.findById(userId);
+        const accessToken = user.generateAccessToken();
+        const refreshToken = user.generateRefreshToken();
 
-        user.refreshToken = refreshToken
-        await user.save({ validateBeforeSave: false })
+        // ✅ Store as nested object
+        user.refreshToken = {
+            token: refreshToken,
+            issuedAt: new Date()
+        };
 
-        return { accessToken, refreshToken }
+        await user.save({ validateBeforeSave: false });
 
+        return { accessToken, refreshToken };
 
     } catch (error) {
-        throw new ApiError(500, "Something went wrong while generating referesh and access token")
+        throw new ApiError(500, "Something went wrong while generating refresh and access token");
     }
-}
+};
+
 
 const registerUser = asyncHandler(async (req, res) => {
     // get user details from frontend
@@ -164,8 +169,8 @@ const loginUser = asyncHandler(async (req, res) => {
 
 
     const { email, password } = req.body
-    console.log("Email : ",email);
-    
+    console.log("Email : ", email);
+
     if (!email) {
         throw new ApiError(400, "email is required")
     }
@@ -233,56 +238,85 @@ const logoutUser = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, {}, "User logged Out"))
 })
 
+
 const refreshAccessToken = asyncHandler(async (req, res) => {
     console.log("Cookies:", req.cookies);
     console.log("Body:", req.body);
-
-    const incomingRefreshToken = req.cookies.refreshToken
-
-    if (!incomingRefreshToken) {
-        throw new ApiError(401, "unauthorized request")
-    }
+    const incomingRefreshToken = req.cookies.refreshToken;
+    if (!incomingRefreshToken) throw new ApiError(401, "Unauthorized");
 
     try {
-        const decodedToken = jwt.verify(
-            incomingRefreshToken,
-            process.env.REFRESH_TOKEN_SECRET
-        )
+        const decoded = jwt.verify(incomingRefreshToken, process.env.REFRESH_TOKEN_SECRET);
+        const user = await User.findById(decoded?._id);
+        console.log("Decoded Token Expiry:", new Date(decoded.exp * 1000)); // Convert to milliseconds
 
-        const user = await User.findById(decodedToken?._id)
+        if (!user) throw new ApiError(401, "User not found");
 
-        if (!user) {
-            throw new ApiError(401, "Invalid refresh token")
+        console.log("Incoming Refresh Token:", incomingRefreshToken);
+        console.log("Stored Refresh Token:", user.refreshToken?.token);
+
+        const storedToken = user.refreshToken?.token;
+
+        if (storedToken !== incomingRefreshToken) {
+            await User.findByIdAndUpdate(user._id, { $unset: { refreshToken: 1 } });
+            throw new ApiError(401, "Token reuse detected or expired");
         }
 
-        if (incomingRefreshToken !== user?.refreshToken) {
-            throw new ApiError(401, "Refresh token is expired or used")
+        // All good → rotate token
+        const accessToken = user.generateAccessToken();
+        const newRefreshToken = user.generateRefreshToken();
 
-        }
+        user.refreshToken = {
+            token: newRefreshToken,
+            issuedAt: new Date()
+        };
+        await user.save({ validateBeforeSave: false });
 
         const options = {
             httpOnly: true,
-            secure: false
-        }
-
-        const { accessToken, newRefreshToken } = await generateAccessAndRefereshTokens(user._id)
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax"
+        };
 
         return res
             .status(200)
             .cookie("accessToken", accessToken, options)
             .cookie("refreshToken", newRefreshToken, options)
-            .json(
-                new ApiResponse(
-                    200,
-                    { accessToken, refreshToken: newRefreshToken },
-                    "Access token refreshed"
-                )
-            )
-    } catch (error) {
-        throw new ApiError(401, error?.message || "Invalid refresh token")
-    }
+            .json(new ApiResponse(200, { accessToken }, "Access token refreshed"));
 
-})
+    } catch (err) {
+        throw new ApiError(401, err?.message || "Invalid token");
+    }
+});
+
+const resetPassword = asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+    console.log("Email : ",email);
+    console.log("Password : ",password);
+    
+    
+    if (!email || !password) {
+      throw new ApiError(400, "Email and new password are required");
+    }
+  
+    const user = await User.findOne({ email });
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+  
+    // Update password (will hash due to pre-save hook)
+    user.password = password;
+  
+    // Optional: Invalidate refresh tokens after password reset
+    user.refreshToken = undefined;
+  
+    await user.save();
+  
+    res.status(200).json(
+      new ApiResponse(200, {}, "Password has been successfully reset")
+    );
+  });
+  
 
 const changeCurrentPassword = asyncHandler(async (req, res) => {
     const { oldPassword, newPassword } = req.body
@@ -349,5 +383,6 @@ export {
     getCurrentUser,
     updateAccountDetails,
     sendOtp,
-    verifyOtp
+    verifyOtp,
+    resetPassword
 }

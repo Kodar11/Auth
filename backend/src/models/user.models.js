@@ -25,8 +25,10 @@ const userSchema = new Schema(
       required: true
     },
     refreshToken: {
-      type: String // or use object: { token, issuedAt } for advanced rotation
+      token: { type: String },
+      issuedAt: { type: Date }
     }
+    
   },
   { timestamps: true }
 );

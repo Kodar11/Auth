@@ -45,7 +45,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white rounded-lg p-8 shadow-md w-full max-w-sm">
         <h2 className="text-2xl font-bold text-center mb-6">Welcome Back</h2>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-900">Email Address</label>
@@ -73,6 +73,15 @@ export default function Login() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600"
               required
             />
+          </div>
+
+          <div className="text-right">
+            <button
+              onClick={() => navigate('/forgot-password')}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              Forgot password?
+            </button>
           </div>
 
           <button

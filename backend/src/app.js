@@ -18,9 +18,12 @@ app.use(cookieParser())
 import userRouter from './routes/user.routes.js'
 import { globalLimiter } from "./middlewares/rateLimitter.middlewares.js"
 
+import { errorHandler } from "./middlewares/errorHandler.middlewares.js"
+
 app.use(globalLimiter)
 //routes declaration
 app.use("/api/v1/users", userRouter)
 
+app.use(errorHandler)
 
 export { app }
