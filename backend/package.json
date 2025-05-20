@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "nodemon src/index.js"
   },
-  "author": "Tanmay Kaustubh Ritesh",
+  "author": "Tanmay",
   "license": "ISC",
   "description": "",
   "devDependencies": {
