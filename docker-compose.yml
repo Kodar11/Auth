@@ -5,13 +5,16 @@ services:
     container_name: frontend
     ports:
       - "5173:5173"
-    volumes:
-      - ./frontend:/app
-    environment:
-      - VITE_API_URL=http://localhost:8000/api/v1
     depends_on:
       - backend
-    command: ["npm", "run", "dev"]
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules       # prevent local node_modules overwrite
+    environment:
+      - VITE_API_URL=http://localhost:8000/api/v1
+    command: ["npm", "run", "dev", "--", "--host"]
 
   backend:
     build:
@@ -21,9 +24,10 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - /app/node_modules
     environment:
       - PORT=8000
-      - MONGODB_URI=mongodb://mongo:27017/sampledb
+      - MONGODB_URI=mongodb://mongo:27017
       - ACCESS_TOKEN_SECRET=TANLFDLFDFSDLF
       - REFRESH_TOKEN_SECRET=KDFDLFDFLSD
       - SMTP_EMAIL=tanmaychavan13@gmail.com
@@ -42,4 +46,4 @@ services:
 
 volumes:
   mongo_data:
-    driver: local
+  node_modules: # This prevents conflict with host's node_modules
