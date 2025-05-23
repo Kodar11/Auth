@@ -11,10 +11,12 @@ services:
     tty: true
     volumes:
       - ./frontend:/app
-      - /app/node_modules       # prevent local node_modules overwrite
+      - /app/node_modules
     environment:
       - VITE_API_URL=http://localhost:8000/api/v1
     command: ["npm", "run", "dev", "--", "--host"]
+    networks:
+      - monitoring
 
   backend:
     build:
@@ -35,6 +37,8 @@ services:
     depends_on:
       - mongo
     command: ["npm", "run", "dev"]
+    networks:
+      - monitoring
 
   mongo:
     image: mongo:latest
@@ -43,7 +47,60 @@ services:
       - mongo_data:/data/db
     ports:
       - "27017:27017"
+    networks:
+      - monitoring
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - monitoring
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.ignored-mount-points=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - "9100:9100"
+    networks:
+      - monitoring
+
+  mongodb-exporter:
+    image: percona/mongodb_exporter:0.44.0
+    container_name: mongodb-exporter
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017
+    ports:
+      - "9216:9216"
+    depends_on:
+      - mongo
+    networks:
+      - monitoring
 
 volumes:
   mongo_data:
-  node_modules: # This prevents conflict with host's node_modules
+  node_modules:
+
+networks:
+  monitoring:
